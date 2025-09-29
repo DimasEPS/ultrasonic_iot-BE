@@ -1,103 +1,186 @@
-import { db } from "../../server.js";
+import { DistanceModel } from "../models/Distance.model.js";
 
 export const distanceController = {
   // Get distance1 data
-  getDistance1: (req, res) => {
-    db.query(
-      "SELECT * FROM distance1 ORDER BY timestamp DESC LIMIT 20",
-      (err, results) => {
-        if (err) return res.status(500).json({ error: err });
-        res.json(results);
-      }
-    );
+  getDistance1: async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit) || 20;
+      const data = await DistanceModel.getDistanceData("1", limit);
+      res.json(data);
+    } catch (error) {
+      console.error("Get Distance1 error:", error);
+      res.status(500).json({
+        message: "Failed to retrieve distance1 data",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
   },
 
   // Get distance2 data
-  getDistance2: (req, res) => {
-    db.query(
-      "SELECT * FROM distance2 ORDER BY timestamp DESC LIMIT 20",
-      (err, results) => {
-        if (err) return res.status(500).json({ error: err });
-        res.json(results);
-      }
-    );
+  getDistance2: async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit) || 20;
+      const data = await DistanceModel.getDistanceData("2", limit);
+      res.json(data);
+    } catch (error) {
+      console.error("Get Distance2 error:", error);
+      res.status(500).json({
+        message: "Failed to retrieve distance2 data",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
   },
 
   // Post new distance1 data
-  postDistance1: (req, res) => {
-    const { distances, status } = req.body;
-
-    // Validate required fields
-    if (distances === undefined || status === undefined) {
-      return res.status(400).json({
-        error: "Missing required fields: distances and status",
+  postDistance1: async (req, res) => {
+    try {
+      const { distances, status } = req.body;
+      const result = await DistanceModel.insertDistanceData("1", {
+        distances,
+        status,
       });
-    }
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Post Distance1 error:", error);
 
-    // Validate data types
-    if (typeof distances !== "number" || typeof status !== "string") {
-      return res.status(400).json({
+      if (
+        error.message.includes("Missing required fields") ||
+        error.message.includes("must be")
+      ) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      res.status(500).json({
+        message: "Failed to insert distance1 data",
         error:
-          "Invalid data types: distances must be number, status must be string",
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
-
-    const sql =
-      "INSERT INTO distance1 (distances, status, timestamp) VALUES (?, ?, NOW())";
-    db.query(sql, [distances, status], (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({
-        message: "Distance1 data inserted successfully",
-        id: result.insertId,
-        distances: distances,
-        status: status,
-      });
-    });
   },
 
   // Post new distance2 data
-  postDistance2: (req, res) => {
-    const { distances, status } = req.body;
-
-    // Validate required fields
-    if (distances === undefined || status === undefined) {
-      return res.status(400).json({
-        error: "Missing required fields: distances and status",
+  postDistance2: async (req, res) => {
+    try {
+      const { distances, status } = req.body;
+      const result = await DistanceModel.insertDistanceData("2", {
+        distances,
+        status,
       });
-    }
+      res.status(201).json(result);
+    } catch (error) {
+      console.error("Post Distance2 error:", error);
 
-    // Validate data types
-    if (typeof distances !== "number" || typeof status !== "string") {
-      return res.status(400).json({
+      if (
+        error.message.includes("Missing required fields") ||
+        error.message.includes("must be")
+      ) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      res.status(500).json({
+        message: "Failed to insert distance2 data",
         error:
-          "Invalid data types: distances must be number, status must be string",
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
-
-    const sql =
-      "INSERT INTO distance2 (distances, status, timestamp) VALUES (?, ?, NOW())";
-    db.query(sql, [distances, status], (err, result) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json({
-        message: "Distance2 data inserted successfully",
-        id: result.insertId,
-        distances: distances,
-        status: status,
-      });
-    });
   },
 
   // Get all distance data (combined)
-  getAllDistances: (req, res) => {
-    const sql = `
-      SELECT 'distance1' AS source, id, distances, status, timestamp FROM distance1
-      UNION ALL
-      SELECT 'distance2' AS source, id, distances, status, timestamp FROM distance2
-      ORDER BY timestamp DESC LIMIT 10
-    `;
-    db.query(sql, (err, results) => {
-      if (err) return res.status(500).json({ error: err });
-      res.json(results);
-    });
+  getAllDistances: async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit) || 10;
+      const data = await DistanceModel.getAllDistanceData(limit);
+      res.json(data);
+    } catch (error) {
+      console.error("Get All Distances error:", error);
+      res.status(500).json({
+        message: "Failed to retrieve distance data",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  },
+
+  // Get latest reading from specific sensor
+  getLatestReading: async (req, res) => {
+    try {
+      const { sensorType } = req.params;
+
+      if (!["1", "2"].includes(sensorType)) {
+        return res
+          .status(400)
+          .json({ message: "Invalid sensor type. Must be '1' or '2'" });
+      }
+
+      const data = await DistanceModel.getLatestReading(sensorType);
+
+      if (!data) {
+        return res
+          .status(404)
+          .json({ message: `No data found for sensor ${sensorType}` });
+      }
+
+      res.json(data);
+    } catch (error) {
+      console.error("Get Latest Reading error:", error);
+      res.status(500).json({
+        message: "Failed to retrieve latest reading",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  },
+
+  // Get statistics for specific sensor
+  getStatistics: async (req, res) => {
+    try {
+      const { sensorType } = req.params;
+      const hours = parseInt(req.query.hours) || 24;
+
+      if (!["1", "2"].includes(sensorType)) {
+        return res
+          .status(400)
+          .json({ message: "Invalid sensor type. Must be '1' or '2'" });
+      }
+
+      const stats = await DistanceModel.getDistanceStatistics(
+        sensorType,
+        hours
+      );
+      res.json(stats);
+    } catch (error) {
+      console.error("Get Statistics error:", error);
+      res.status(500).json({
+        message: "Failed to retrieve statistics",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+  },
+
+  // Cleanup old data
+  cleanupOldData: async (req, res) => {
+    try {
+      const { sensorType } = req.params;
+      const days = parseInt(req.query.days) || 30;
+
+      if (!["1", "2"].includes(sensorType)) {
+        return res
+          .status(400)
+          .json({ message: "Invalid sensor type. Must be '1' or '2'" });
+      }
+
+      const result = await DistanceModel.cleanupOldData(sensorType, days);
+      res.json(result);
+    } catch (error) {
+      console.error("Cleanup Old Data error:", error);
+      res.status(500).json({
+        message: "Failed to cleanup old data",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
   },
 };
