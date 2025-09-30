@@ -66,8 +66,7 @@ export class ControlModel {
       // First check if record exists
       this.getControlStatus()
         .then(() => {
-          const sql =
-            "UPDATE switch_condition SET TV=?, updated_at=NOW() WHERE id=1";
+          const sql = "UPDATE switch_condition SET TV=? WHERE id=1";
 
           db.query(sql, [tvValue], (err, result) => {
             if (err) return reject(err);
@@ -91,7 +90,7 @@ export class ControlModel {
   static async initializeControlStatus() {
     return new Promise((resolve, reject) => {
       const sql =
-        "INSERT INTO switch_condition (id, TV, created_at, updated_at) VALUES (1, 0, NOW(), NOW()) ON DUPLICATE KEY UPDATE updated_at=NOW()";
+        "INSERT INTO switch_condition (id, TV) VALUES (1, 0) ON DUPLICATE KEY UPDATE TV=TV";
 
       db.query(sql, (err, result) => {
         if (err) return reject(err);
@@ -113,8 +112,8 @@ export class ControlModel {
   static async getControlHistory(limit = 50) {
     return new Promise((resolve, reject) => {
       // This would require a control_history table to track changes
-      // For now, we'll return current status with timestamp
-      const sql = "SELECT TV, updated_at FROM switch_condition WHERE id=1";
+      // For now, we'll return current status only
+      const sql = "SELECT TV FROM switch_condition WHERE id=1";
 
       db.query(sql, (err, results) => {
         if (err) return reject(err);
@@ -158,7 +157,7 @@ export class ControlModel {
           TV: {
             status: controlStatus.TV === 1 ? "ON" : "OFF",
             value: controlStatus.TV,
-            last_updated: controlStatus.updated_at || null,
+            last_updated: null, // No timestamp field available
           },
         },
         total_devices: 1,
